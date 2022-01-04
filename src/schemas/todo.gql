@@ -1,0 +1,29 @@
+type Todo {
+    id: ID!
+    title: String!
+    description: String
+}
+
+input TodoInput {
+    title: String!
+    description: String
+}
+
+type PaginatedTodos {
+    todos: [Todo!]!
+    nextToken: String
+}
+
+type Query {
+    getTodos(limit: Int, nextToken: String): PaginatedTodos!
+    getTodo(id: ID!): Todo
+}
+
+type Mutation {
+    addTodo(input: TodoInput!): Todo
+}
+
+schema {
+  query: Query
+  mutation: Mutation
+}
