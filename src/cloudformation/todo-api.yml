@@ -1,0 +1,129 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: Todo API
+
+Parameters:
+  Stage:
+    Type: String
+  BuildReference:
+    Type: String
+  DeployBucket:
+    Type: String
+    Default: todo-deploy-bucket
+
+Resources:
+  TodoApi:
+    Type: AWS::AppSync::GraphQLApi
+    Properties:
+      Name:
+        Fn::Sub: todo-api-${Stage}
+      AuthenticationType: API_KEY
+
+  TodoApiKey:
+    Type: AWS::AppSync::ApiKey
+    Properties:
+      ApiId:
+        Fn::GetAtt: TodoApi.ApiId
+      Expires: 1662812506
+
+  TodoApiSchema:
+    Type: AWS::AppSync::GraphQLSchema
+    Properties:
+      ApiId:
+        Fn::GetAtt: TodoApi.ApiId
+      DefinitionS3Location:
+        Fn::Sub: s3://${DeployBucket}/${BuildReference}/schemas/todo.gql
+
+  TodoApiTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+
+  TodoApiRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - sts:AssumeRole
+            Principal:
+              Service:
+                - appsync.amazonaws.com
+      Policies:
+        - PolicyName: DynamoDBAccess
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                  - dynamodb:GetItem
+                  - dynamodb:Scan
+                Resource:
+                  - Fn::GetAtt: TodoApiTable.Arn
+
+  TodoApiSource:
+    Type: AWS::AppSync::DataSource
+    Properties:
+      ApiId:
+        Fn::GetAtt: TodoApi.ApiId
+      Name:
+        Fn::Sub: todo_${Stage}
+      Type: AMAZON_DYNAMODB
+      ServiceRoleArn:
+        Fn::GetAtt: TodoApiRole.Arn
+      DynamoDBConfig:
+        TableName:
+          Ref: TodoApiTable
+        AwsRegion:
+          Ref: AWS::Region
+
+  TodoApiAddTodoResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId:
+        Fn::GetAtt: TodoApi.ApiId
+      TypeName: Mutation
+      FieldName: addTodo
+      DataSourceName:
+        Fn::GetAtt: TodoApiSource.Name
+      RequestMappingTemplateS3Location:
+        Fn::Sub: s3://${DeployBucket}/${BuildReference}/mappings/requests/addTodo.vm
+      ResponseMappingTemplateS3Location:
+        Fn::Sub: s3://${DeployBucket}/${BuildReference}/mappings/responses/common.vm
+
+  TodoApiGetTodoResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId:
+        Fn::GetAtt: TodoApi.ApiId
+      TypeName: Query
+      FieldName: getTodo
+      DataSourceName:
+        Fn::GetAtt: TodoApiSource.Name
+      RequestMappingTemplateS3Location:
+        Fn::Sub: s3://${DeployBucket}/${BuildReference}/mappings/requests/getTodo.vm
+      ResponseMappingTemplateS3Location:
+        Fn::Sub: s3://${DeployBucket}/${BuildReference}/mappings/responses/common.vm
+
+  TodoApiGetTodosResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId:
+        Fn::GetAtt: TodoApi.ApiId
+      TypeName: Query
+      FieldName: getTodos
+      DataSourceName:
+        Fn::GetAtt: TodoApiSource.Name
+      RequestMappingTemplateS3Location:
+        Fn::Sub: s3://${DeployBucket}/${BuildReference}/mappings/requests/getTodos.vm
+      ResponseMappingTemplateS3Location:
+        Fn::Sub: s3://${DeployBucket}/${BuildReference}/mappings/responses/getTodos.vm
