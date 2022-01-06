@@ -4,6 +4,8 @@
     "key" : {
         "id": $util.dynamodb.toDynamoDBJson($util.autoId()),
     },
-    "title": $util.dynamodb.toDynamoDBJson($ctx.args.input.title),
-    "description": $util.dynamodb.toDynamoDBJson($ctx.args.input.description),
+    "attributeValues": {
+        "title": $util.dynamodb.toDynamoDBJson($ctx.args.input.title),
+        "description": $util.dynamodb.toDynamoDBJson($ctx.args.input.description),
+    }
 }
